@@ -2507,9 +2507,9 @@ int dev_forward_skb_nomtu(struct net_device *dev, struct sk_buff *skb)
 	return __dev_forward_skb2(dev, skb, false) ?: netif_rx_internal(skb);
 }
 
-static inline int deliver_skb(struct sk_buff *skb,
-			      struct packet_type *pt_prev,
-			      struct net_device *orig_dev)
+static int deliver_skb(struct sk_buff *skb,
+		       struct packet_type *pt_prev,
+		       struct net_device *orig_dev)
 {
 	if (unlikely(skb_orphan_frags_rx(skb, GFP_ATOMIC)))
 		return -ENOMEM;
@@ -2528,7 +2528,7 @@ static inline void deliver_ptype_list_skb(struct sk_buff *skb,
 	list_for_each_entry_rcu(ptype, ptype_list, list) {
 		if (ptype->type != type)
 			continue;
-		if (pt_prev)
+		if (unlikely(pt_prev))
 			deliver_skb(skb, pt_prev, orig_dev);
 		pt_prev = ptype;
 	}
@@ -2589,7 +2589,7 @@ again:
 		if (skb_loop_sk(ptype, skb))
 			continue;
 
-		if (pt_prev) {
+		if (unlikely(pt_prev)) {
 			deliver_skb(skb2, pt_prev, skb->dev);
 			pt_prev = ptype;
 			continue;
@@ -4480,7 +4480,7 @@ sch_handle_ingress(struct sk_buff *skb, struct packet_type **pt_prev, int *ret,
 		return skb;
 
 	bpf_net_ctx = bpf_net_ctx_set(&__bpf_net_ctx);
-	if (*pt_prev) {
+	if (unlikely(*pt_prev)) {
 		*ret = deliver_skb(skb, *pt_prev, orig_dev);
 		*pt_prev = NULL;
 	}
@@ -5947,7 +5947,7 @@ static inline int nf_ingress(struct sk_buff *skb, struct packet_type **pt_prev,
 	if (nf_hook_ingress_active(skb)) {
 		int ingress_retval;
 
-		if (*pt_prev) {
+		if (unlikely(*pt_prev)) {
 			*ret = deliver_skb(skb, *pt_prev, orig_dev);
 			*pt_prev = NULL;
 		}
@@ -6037,13 +6037,13 @@ another_round:
 
 	list_for_each_entry_rcu(ptype, &dev_net_rcu(skb->dev)->ptype_all,
 				list) {
-		if (pt_prev)
+		if (unlikely(pt_prev))
 			ret = deliver_skb(skb, pt_prev, orig_dev);
 		pt_prev = ptype;
 	}
 
 	list_for_each_entry_rcu(ptype, &skb->dev->ptype_all, list) {
-		if (pt_prev)
+		if (unlikely(pt_prev))
 			ret = deliver_skb(skb, pt_prev, orig_dev);
 		pt_prev = ptype;
 	}
@@ -6074,7 +6074,7 @@ skip_classify:
 	}
 
 	if (skb_vlan_tag_present(skb)) {
-		if (pt_prev) {
+		if (unlikely(pt_prev)) {
 			ret = deliver_skb(skb, pt_prev, orig_dev);
 			pt_prev = NULL;
 		}
@@ -6086,7 +6086,7 @@ skip_classify:
 
 	rx_handler = rcu_dereference(skb->dev->rx_handler);
 	if (rx_handler) {
-		if (pt_prev) {
+		if (unlikely(pt_prev)) {
 			ret = deliver_skb(skb, pt_prev, orig_dev);
 			pt_prev = NULL;
 		}
