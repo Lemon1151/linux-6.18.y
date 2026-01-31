@@ -93,7 +93,7 @@ ifeq ($(CONFIG_R8168_EEE), y)
 	ccflags-y += -DENABLE_EEE
 endif
 
-ifeq ($(CONFIG_R8168_R8168_S0_MAGIC_PACKET), y)
+ifeq ($(CONFIG_R8168_S0_MAGIC_PACKET), y)
 	ccflags-y += -DENABLE_S0_MAGIC_PACKET
 endif
 
