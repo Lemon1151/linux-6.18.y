@@ -66,6 +66,8 @@
 
 /* RTL8211F PHY configuration */
 #define RTL8211F_PHYCR_PAGE			0xa43
+#define RTL8211F_LCR				0x10
+#define RTL8211F_EEELCR				0x11
 #define RTL8211F_PHYCR1				0x18
 #define RTL8211F_ALDPS_PLL_OFF			BIT(1)
 #define RTL8211F_ALDPS_ENABLE			BIT(2)
@@ -672,6 +674,7 @@ static int rtl8211f_config_phy_eee(struct phy_device *phydev)
 static int rtl8211f_config_init(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
+	u32 led_data;
 	int ret;
 
 	ret = rtl8211f_config_aldps(phydev);
@@ -690,6 +693,15 @@ static int rtl8211f_config_init(struct phy_device *phydev)
 		dev_err(dev, "clkout configuration failed: %pe\n",
 			ERR_PTR(ret));
 		return ret;
+	}
+
+	ret = of_property_read_u32(dev->of_node,
+				   "realtek,led-data", &led_data);
+	if (!ret) {
+		phy_write(phydev, RTL821x_PAGE_SELECT, 0xd04);
+		phy_write(phydev, RTL8211F_LCR, led_data);
+		phy_write(phydev, RTL8211F_EEELCR, 0x0);
+		phy_write(phydev, RTL821x_PAGE_SELECT, 0x0);
 	}
 
 	return rtl8211f_config_phy_eee(phydev);
